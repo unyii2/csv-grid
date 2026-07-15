@@ -7,16 +7,21 @@
 
 namespace yii2tech\csvgrid;
 
+use Iterator;
 use Yii;
 use yii\base\Component;
+use yii\base\Exception;
 use yii\base\InvalidConfigException;
 use yii\data\ActiveDataProvider;
+use yii\data\DataProviderInterface;
+use yii\data\Pagination;
+use yii\db\QueryInterface;
 use yii\di\Instance;
 use yii\i18n\Formatter;
 
 /**
  * CsvGrid allows export of data into CSV files.
- * It supports exporting of the {@see \yii\data\DataProviderInterface} and {@see \yii\db\QueryInterface} instances.
+ * It supports exporting of the {@see DataProviderInterface} and {@see QueryInterface} instances.
  *
  * Example:
  *
@@ -58,12 +63,12 @@ use yii\i18n\Formatter;
 class CsvGrid extends Component
 {
     /**
-     * @var \yii\data\DataProviderInterface the data provider for the view.
+     * @var DataProviderInterface the data provider for the view.
      * This property can be omitted in case {@see query} is set.
      */
     public $dataProvider;
     /**
-     * @var \yii\db\QueryInterface the data source query.
+     * @var QueryInterface the data source query.
      * Note: this field will be ignored in case {@see dataProvider} is set.
      */
     public $query;
@@ -169,24 +174,23 @@ class CsvGrid extends Component
      * Initializes the grid.
      * This method will initialize required property values and instantiate {@see columns} objects.
      */
-    public function init()
+    public function init(): void
     {
         parent::init();
 
-        if ($this->dataProvider === null) {
-            if ($this->query !== null) {
-                $this->dataProvider = new ActiveDataProvider([
-                    'query' => $this->query,
-                    'pagination' => [
-                        'pageSize' => $this->batchSize,
-                    ],
-                ]);
-            }
+        if (($this->dataProvider === null) && $this->query !== null) {
+            $this->dataProvider = new ActiveDataProvider([
+                'query' => $this->query,
+                'pagination' => [
+                    'pageSize' => $this->batchSize,
+                ],
+            ]);
         }
     }
 
     /**
      * @return Formatter formatter instance
+     * @throws InvalidConfigException
      */
     public function getFormatter()
     {
@@ -194,7 +198,7 @@ class CsvGrid extends Component
             if ($this->_formatter === null) {
                 $this->_formatter = Yii::$app->getFormatter();
             } else {
-                $this->_formatter = Instance::ensure($this->_formatter, Formatter::className());
+                $this->_formatter = Instance::ensure($this->_formatter, Formatter::class);
             }
         }
         return $this->_formatter;
@@ -203,7 +207,7 @@ class CsvGrid extends Component
     /**
      * @param array|Formatter $formatter
      */
-    public function setFormatter($formatter)
+    public function setFormatter($formatter): void
     {
         $this->_formatter = $formatter;
     }
@@ -211,8 +215,9 @@ class CsvGrid extends Component
     /**
      * Creates column objects and initializes them.
      * @param array $model list of single row model
+     * @throws InvalidConfigException
      */
-    protected function initColumns($model)
+    protected function initColumns($model): void
     {
         if (empty($this->columns)) {
             $this->guessColumns($model);
@@ -220,9 +225,11 @@ class CsvGrid extends Component
         foreach ($this->columns as $i => $column) {
             if (is_string($column)) {
                 $column = $this->createDataColumn($column);
+            } elseif (isset($column['class'])) {
+                $column = Yii::createObject($column);
             } else {
                 $column = Yii::createObject(array_merge([
-                    'class' => DataColumn::className(),
+                    'class' => DataColumn::class,
                     'grid' => $this,
                 ], $column));
             }
@@ -239,7 +246,7 @@ class CsvGrid extends Component
      * if {@see columns} are not explicitly specified.
      * @param array $model list of model
      */
-    protected function guessColumns($model)
+    protected function guessColumns($model): void
     {
         if (is_array($model) || is_object($model)) {
             foreach ($model as $name => $value) {
@@ -261,24 +268,24 @@ class CsvGrid extends Component
         }
 
         return Yii::createObject([
-            'class' => DataColumn::className(),
+            'class' => DataColumn::class,
             'grid' => $this,
             'attribute' => $matches[1],
-            'format' => isset($matches[3]) ? $matches[3] : 'raw',
-            'label' => isset($matches[5]) ? $matches[5] : null,
+            'format' => $matches[3] ?? 'raw',
+            'label' => $matches[5] ?? null,
         ]);
     }
 
     /**
      * Performs data export.
      * @return ExportResult export result.
-     * @throws InvalidConfigException if invalid {@see resultConfig} value.
+     * @throws InvalidConfigException|Exception if invalid {@see resultConfig} value.
      */
     public function export()
     {
         /** @var ExportResult $result */
         $result = Yii::createObject(array_merge([
-            'class' => ExportResult::className(),
+            'class' => ExportResult::class,
         ], $this->resultConfig));
 
         $columnsInitialized = false;
@@ -294,7 +301,7 @@ class CsvGrid extends Component
         $csvFile = null;
         $rowIndex = 0;
         while (($data = $this->batchModels()) !== false) {
-            list($models, $keys) = $data;
+            [$models, $keys] = $data;
 
             if (!$columnsInitialized) {
                 $this->initColumns(reset($models));
@@ -309,7 +316,7 @@ class CsvGrid extends Component
                     }
                 }
 
-                $key = isset($keys[$index]) ? $keys[$index] : $index;
+                $key = $keys[$index] ?? $index;
                 $csvFile->writeRow($this->composeBodyRow($model, $key, $rowIndex));
                 $rowIndex++;
 
@@ -369,7 +376,7 @@ class CsvGrid extends Component
         }
 
         if (isset($this->batchInfo['queryIterator'])) {
-            /* @var $iterator \Iterator */
+            /* @var $iterator Iterator */
             $iterator = $this->batchInfo['queryIterator'];
             $iterator->next();
 
@@ -382,7 +389,7 @@ class CsvGrid extends Component
         }
 
         if (isset($this->batchInfo['pagination'])) {
-            /* @var $pagination \yii\data\Pagination|bool */
+            /* @var $pagination Pagination|bool */
             $pagination = $this->batchInfo['pagination'];
             $page = $this->batchInfo['page'];
 
@@ -394,16 +401,14 @@ class CsvGrid extends Component
                         $this->dataProvider->getKeys()
                     ];
                 }
-            } else {
-                if ($page < $pagination->pageCount) {
-                    $pagination->setPage($page);
-                    $this->dataProvider->prepare(true);
-                    $this->batchInfo['page']++;
-                    return [
-                        $this->dataProvider->getModels(),
-                        $this->dataProvider->getKeys()
-                    ];
-                }
+            } elseif ($page < $pagination->pageCount) {
+                $pagination->setPage($page);
+                $this->dataProvider->prepare(true);
+                $this->batchInfo['page']++;
+                return [
+                    $this->dataProvider->getModels(),
+                    $this->dataProvider->getKeys()
+                ];
             }
 
             $this->batchInfo = null;
@@ -458,7 +463,7 @@ class CsvGrid extends Component
     /**
      * Performs PHP memory garbage collection.
      */
-    protected function gc()
+    protected function gc(): void
     {
         if (!gc_enabled()) {
             gc_enable();

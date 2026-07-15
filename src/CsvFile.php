@@ -131,6 +131,7 @@ class CsvFile extends BaseObject
      * Writes the given row data into the file in CSV format.
      * @param mixed $rowData raw data can be array or object.
      * @return int the number of bytes written.
+     * @throws Exception
      */
     public function writeRow($rowData)
     {
@@ -167,7 +168,7 @@ class CsvFile extends BaseObject
     /**
      * Secures the given value so it can be written in CSV cell.
      * @param string $value value to be secured
-     * @return mixed secured value.
+     * @return string secured value.
      */
     protected function encodeValue($value)
     {

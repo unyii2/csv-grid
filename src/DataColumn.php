@@ -7,6 +7,7 @@
 
 namespace yii2tech\csvgrid;
 
+use Exception;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use yii\db\ActiveQueryInterface;
@@ -96,6 +97,7 @@ class DataColumn extends Column
      * @param mixed $key the key associated with the data model
      * @param int $index the zero-based index of the data model among the models array returned by {@see CsvGrid::$dataProvider}.
      * @return string the data cell value
+     * @throws Exception
      */
     public function getDataCellValue($model, $key, $index)
     {
@@ -104,7 +106,8 @@ class DataColumn extends Column
                 return ArrayHelper::getValue($model, $this->value);
             }
             return call_user_func($this->value, $model, $key, $index, $this);
-        } elseif ($this->attribute !== null) {
+        }
+        if ($this->attribute !== null) {
             return ArrayHelper::getValue($model, $this->attribute);
         }
         return null;

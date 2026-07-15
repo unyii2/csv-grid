@@ -89,7 +89,7 @@ class CsvGridTest extends TestCase
         $grid->export();
 
         $this->assertCount(4, $grid->columns);
-        list($serialColumn, $idColumn, $nameColumn, $descriptionColumn) = $grid->columns;
+        [$serialColumn, $idColumn, $nameColumn, $descriptionColumn] = $grid->columns;
 
         $this->assertTrue($serialColumn instanceof SerialColumn);
         /* @var $idColumn DataColumn */

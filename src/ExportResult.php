@@ -8,8 +8,10 @@
 namespace yii2tech\csvgrid;
 
 use Yii;
+use yii\base\ErrorException;
 use yii\base\Exception;
 use yii\base\BaseObject;
+use yii\base\InvalidConfigException;
 use yii\helpers\FileHelper;
 use yii\web\Response;
 use ZipArchive;
@@ -98,24 +100,23 @@ class ExportResult extends BaseObject
 
     /**
      * @return string result file name
+     * @throws Exception
      */
     public function getResultFileName()
     {
-        if ($this->_resultFileName === null) {
-            if (!empty($this->csvFiles)) {
-                if (count($this->csvFiles) > 1) {
-                    $files = [];
-                    foreach ($this->csvFiles as $csvFile) {
-                        $files[] = $csvFile->name;
-                    }
-                    $this->_resultFileName = $this->archiveFiles($files);
+        if (($this->_resultFileName === null) && !empty($this->csvFiles)) {
+            if (count($this->csvFiles) > 1) {
+                $files = [];
+                foreach ($this->csvFiles as $csvFile) {
+                    $files[] = $csvFile->name;
+                }
+                $this->_resultFileName = $this->archiveFiles($files);
+            } else {
+                $csvFile = reset($this->csvFiles);
+                if ($this->forceArchive) {
+                    $this->_resultFileName = $this->archiveFiles([$csvFile->name]);
                 } else {
-                    $csvFile = reset($this->csvFiles);
-                    if ($this->forceArchive) {
-                        $this->_resultFileName = $this->archiveFiles([$csvFile->name]);
-                    } else {
-                        $this->_resultFileName = $csvFile->name;
-                    }
+                    $this->_resultFileName = $csvFile->name;
                 }
             }
         }
@@ -127,13 +128,14 @@ class ExportResult extends BaseObject
      * Creates new CSV file in result set.
      * @param array $config file instance configuration.
      * @return CsvFile file instance.
+     * @throws InvalidConfigException
      */
     public function newCsvFile($config = [])
     {
         $selfFileName = $this->fileBaseName . '-' . str_pad((count($this->csvFiles) + 1), 3, '0', STR_PAD_LEFT);
 
         /* @var $file CsvFile */
-        $file = Yii::createObject(array_merge(['class' => CsvFile::className()], $config));
+        $file = Yii::createObject(array_merge(['class' => CsvFile::class], $config));
         $file->name = $this->getDirName() . DIRECTORY_SEPARATOR . $selfFileName . '.csv';
 
         $this->csvFiles[] = $file;
@@ -144,6 +146,7 @@ class ExportResult extends BaseObject
     /**
      * Deletes associated directory with all internal files.
      * @return bool whether file has been deleted.
+     * @throws ErrorException
      */
     public function delete()
     {
@@ -212,6 +215,7 @@ class ExportResult extends BaseObject
      * resolves path alias and creates missing directories.
      * @param string $destinationFileName destination file name
      * @return string real destination file name
+     * @throws Exception
      */
     protected function prepareDestinationFileName($destinationFileName)
     {

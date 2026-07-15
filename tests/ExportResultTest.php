@@ -82,7 +82,7 @@ class ExportResultTest extends TestCase
     public function testArchiveResultFileNameCallback()
     {
         $exportResult = $this->createExportResult();
-        $exportResult->archiver = function ($files, $dirName) {
+        $exportResult->archiver = static function ($files, $dirName) {
             return 'mock.tar';
         };
 
@@ -105,7 +105,7 @@ class ExportResultTest extends TestCase
     {
         $exportResult = $this->createExportResult();
         $exportResult->forceArchive = true;
-        $exportResult->archiver = function ($files, $dirName) {
+        $exportResult->archiver = static function ($files, $dirName) {
             return 'force.tar';
         };
 
