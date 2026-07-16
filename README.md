@@ -283,3 +283,53 @@ $exporter = new CsvGrid([
 ]);
 $exporter->export()->saveAs('/path/to/file.txt');
 ```
+## blankonā
+
+Controlller action index
+```php
+        if ($action === self::CSV) {
+            return $this->render('index-csv', [
+                'dataProvider' => $searchModel->search(),
+            ]);
+        }
+```
+
+index.php
+```php
+        $this->addExportButtonItem('CSV', [
+            'index',
+            'action' => CwbrProductController::CSV,
+        ]);
+```
+
+index-csv.php
+```php
+use d3system\yii2\web\D3SystemView;
+use yii2tech\csvgrid\CsvGrid;
+
+/**
+ * @var D3SystemView $this
+ * @var yii\data\ActiveDataProvider $dataProvider
+ */
+
+$columns = [
+    [
+        'attribute' => 'status',
+        'value' => static function (CwbrProductSearch $model) {
+            return cewood\cwsorting\models\CwbrProduct::getStatusValueLabel($model->status);
+        },
+    ],
+];    
+
+
+$exporter = new CsvGrid([
+    'dataProvider' => $dataProvider,
+    'columns' => $columns,
+    'csvFileConfig' => [
+        'writeBom' => true,
+    ],
+]);
+
+$exporter->export()->send();
+
+```
